@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>スペリングパズル 🔤</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', 'Hiragino Maru Gothic Pro', 'Yu Gothic', sans-serif;
+    background: linear-gradient(135deg, #d4fc79, #96e6a1);
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .header { text-align: center; margin-bottom: 20px; }
+  h1 { font-size: 2rem; color: #fff; text-shadow: 2px 2px 0 #2ecc71; }
+  .back { display: inline-block; margin-bottom: 10px; color: #2ecc71; text-decoration: none; font-size: 1rem; font-weight: bold; }
+  .back:hover { text-decoration: underline; }
+
+  .level-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .lv-btn {
+    padding: 8px 20px;
+    border: 3px solid #2ecc71;
+    border-radius: 50px;
+    background: #fff;
+    color: #2ecc71;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+  }
+  .lv-btn.active, .lv-btn:hover { background: #2ecc71; color: #fff; }
+
+  .game-area {
+    max-width: 480px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .score-display {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 16px;
+  }
+
+  .hint-emoji {
+    font-size: 5rem;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .hint-jp {
+    font-size: 1.2rem;
+    color: #555;
+    margin-bottom: 20px;
+  }
+
+  .answer-slots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .slot {
+    width: 48px;
+    height: 56px;
+    border-radius: 12px;
+    border: 3px solid #2ecc71;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    font-weight: bold;
+    color: #2c3e50;
+    cursor: pointer;
+    transition: background 0.15s;
+    text-transform: uppercase;
+  }
+  .slot.filled { background: #d4edda; }
+  .slot.correct { background: #2ecc71; color: #fff; border-color: #27ae60; }
+  .slot.wrong   { background: #e74c3c; color: #fff; border-color: #c0392b; animation: shake 0.4s; }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)}
+    25%{transform:translateX(-6px)}
+    75%{transform:translateX(6px)}
+  }
+
+  .letter-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .letter-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    border: none;
+    background: #fff;
+    color: #2c3e50;
+    font-size: 1.4rem;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+  .letter-btn:hover:not(:disabled) { background: #2ecc71; color: #fff; transform: scale(1.1); }
+  .letter-btn:disabled { opacity: 0.3; cursor: default; }
+
+  .action-row {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .btn-clear, .btn-hint, .btn-next {
+    padding: 10px 22px;
+    border: none;
+    border-radius: 50px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.15s;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.12);
+  }
+  .btn-clear { background: #e74c3c; color: #fff; }
+  .btn-hint  { background: #FFA94D; color: #fff; }
+  .btn-next  { background: #74C0FC; color: #fff; display: none; }
+  .btn-clear:hover, .btn-hint:hover, .btn-next:hover { transform: scale(1.05); }
+
+  .result-msg {
+    font-size: 1.4rem;
+    font-weight: bold;
+    min-height: 36px;
+    margin-bottom: 10px;
+  }
+  .result-msg.ok  { color: #2ecc71; }
+  .result-msg.ng  { color: #e74c3c; }
+
+  .hint-text {
+    font-size: 1rem;
+    color: #888;
+    margin-bottom: 8px;
+    min-height: 24px;
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <a href="index.html" class="back">← もどる</a>
+  <h1>🔤 スペリングパズル</h1>
+</div>
+
+<div class="level-row">
+  <button class="lv-btn active" data-lv="1">⭐ かんたん</button>
+  <button class="lv-btn" data-lv="2">⭐⭐ ふつう</button>
+  <button class="lv-btn" data-lv="3">⭐⭐⭐ むずかしい</button>
+</div>
+
+<div class="game-area">
+  <div class="score-display">スコア: <span id="score">0</span> / <span id="total">0</span></div>
+  <span class="hint-emoji" id="hint-emoji">🐶</span>
+  <div class="hint-jp" id="hint-jp">いぬ</div>
+  <div class="hint-text" id="hint-text"></div>
+  <div class="answer-slots" id="answer-slots"></div>
+  <div class="letter-buttons" id="letter-buttons"></div>
+  <div class="action-row">
+    <button class="btn-clear" id="btn-clear">🗑 クリア</button>
+    <button class="btn-hint"  id="btn-hint">💡 ヒント</button>
+    <button class="btn-next"  id="btn-next" style="display:none">つぎへ ▶</button>
+  </div>
+  <div class="result-msg" id="result-msg"></div>
+</div>
+
+<script>
+const ALL_WORDS = {
+  1: [
+    {e:'🐶',w:'dog',j:'いぬ'},
+    {e:'🐱',w:'cat',j:'ねこ'},
+    {e:'🔴',w:'red',j:'あか'},
+    {e:'🚗',w:'car',j:'くるま'},
+    {e:'🐷',w:'pig',j:'ぶた'},
+    {e:'☀️',w:'sun',j:'たいよう'},
+    {e:'🌙',w:'moon',j:'つき'},
+    {e:'⭐',w:'star',j:'ほし'},
+    {e:'🌊',w:'sea',j:'うみ'},
+    {e:'🌲',w:'tree',j:'き'},
+  ],
+  2: [
+    {e:'🐰',w:'rabbit',j:'うさぎ'},
+    {e:'🍎',w:'apple',j:'りんご'},
+    {e:'🍌',w:'banana',j:'バナナ'},
+    {e:'🟡',w:'yellow',j:'きいろ'},
+    {e:'🌸',w:'flower',j:'はな'},
+    {e:'🐬',w:'dolphin',j:'いるか'},
+    {e:'🚌',w:'bus',j:'バス'},
+    {e:'🐻',w:'bear',j:'くま'},
+    {e:'🍊',w:'orange',j:'オレンジ'},
+    {e:'🐸',w:'frog',j:'かえる'},
+    {e:'✈️',w:'plane',j:'ひこうき'},
+    {e:'🌈',w:'rainbow',j:'にじ'},
+  ],
+  3: [
+    {e:'🦋',w:'butterfly',j:'ちょうちょ'},
+    {e:'🍓',w:'strawberry',j:'いちご'},
+    {e:'🐬',w:'dolphin',j:'いるか'},
+    {e:'🌻',w:'sunflower',j:'ひまわり'},
+    {e:'🐙',w:'octopus',j:'たこ'},
+    {e:'🦉',w:'owl',j:'ふくろう'},
+    {e:'🐯',w:'tiger',j:'とら'},
+    {e:'🥦',w:'broccoli',j:'ブロッコリー'},
+    {e:'🎃',w:'pumpkin',j:'かぼちゃ'},
+    {e:'🌴',w:'palm',j:'やしのき'},
+  ],
+};
+
+let currentLevel = 1;
+let words = [];
+let wordIdx = 0;
+let answered = [];
+let letterMap = [];
+let hints = 0;
+let score = 0;
+let total = 0;
+let done = false;
+
+function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
+
+function startLevel(lv) {
+  currentLevel = lv;
+  words = shuffle(ALL_WORDS[lv]);
+  wordIdx = 0; score = 0; total = 0;
+  updateScore();
+  loadWord();
+}
+
+function loadWord() {
+  if (wordIdx >= words.length) { wordIdx = 0; words = shuffle(ALL_WORDS[currentLevel]); }
+  const w = words[wordIdx];
+  const letters = w.w.split('');
+  answered = Array(letters.length).fill('');
+  hints = 0;
+  done = false;
+  letterMap = shuffle(letters.map((l, i) => ({ l, i, used: false })));
+
+  document.getElementById('hint-emoji').textContent = w.e;
+  document.getElementById('hint-jp').textContent = w.j;
+  document.getElementById('hint-text').textContent = `${letters.length}もじ`;
+  document.getElementById('result-msg').textContent = '';
+  document.getElementById('result-msg').className = 'result-msg';
+  document.getElementById('btn-next').style.display = 'none';
+
+  renderSlots(letters.length);
+  renderLetters();
+}
+
+function renderSlots(n) {
+  const el = document.getElementById('answer-slots');
+  el.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const div = document.createElement('div');
+    div.className = 'slot';
+    div.dataset.idx = i;
+    div.addEventListener('click', () => removeFromSlot(i));
+    el.appendChild(div);
+  }
+}
+
+function renderLetters() {
+  const el = document.getElementById('letter-buttons');
+  el.innerHTML = '';
+  letterMap.forEach((item, mi) => {
+    const btn = document.createElement('button');
+    btn.className = 'letter-btn';
+    btn.textContent = item.l.toUpperCase();
+    btn.disabled = item.used;
+    btn.addEventListener('click', () => addLetter(mi));
+    el.appendChild(btn);
+  });
+}
+
+function addLetter(mi) {
+  if (done) return;
+  const item = letterMap[mi];
+  if (item.used) return;
+  const emptyIdx = answered.indexOf('');
+  if (emptyIdx === -1) return;
+  answered[emptyIdx] = { letter: item.l, mi };
+  item.used = true;
+  updateSlots();
+  renderLetters();
+  if (!answered.includes('')) checkAnswer();
+}
+
+function removeFromSlot(slotIdx) {
+  if (done) return;
+  const entry = answered[slotIdx];
+  if (!entry) return;
+  letterMap[entry.mi].used = false;
+  answered[slotIdx] = '';
+  updateSlots();
+  renderLetters();
+}
+
+function updateSlots() {
+  const slots = document.querySelectorAll('.slot');
+  slots.forEach((slot, i) => {
+    const entry = answered[i];
+    slot.textContent = entry ? entry.letter.toUpperCase() : '';
+    slot.className = 'slot' + (entry ? ' filled' : '');
+  });
+}
+
+function checkAnswer() {
+  const word = words[wordIdx].w;
+  const typed = answered.map(a => a ? a.letter : '').join('');
+  const slots = document.querySelectorAll('.slot');
+  if (typed.toLowerCase() === word.toLowerCase()) {
+    slots.forEach(s => s.classList.add('correct'));
+    document.getElementById('result-msg').textContent = '🎉 せいかい！';
+    document.getElementById('result-msg').className = 'result-msg ok';
+    score++; total++; done = true;
+    updateScore();
+    speak(word);
+    document.getElementById('btn-next').style.display = 'inline-block';
+  } else {
+    slots.forEach(s => s.classList.add('wrong'));
+    document.getElementById('result-msg').textContent = '❌ もういちど！';
+    document.getElementById('result-msg').className = 'result-msg ng';
+    setTimeout(() => {
+      answered.forEach((entry, i) => {
+        if (entry) letterMap[entry.mi].used = false;
+      });
+      answered = Array(word.length).fill('');
+      updateSlots();
+      renderLetters();
+      slots.forEach(s => { s.classList.remove('wrong'); s.classList.remove('filled'); });
+      document.getElementById('result-msg').textContent = '';
+    }, 800);
+  }
+}
+
+function updateScore() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('total').textContent = total;
+}
+
+function speak(word) {
+  if (!window.speechSynthesis) return;
+  const u = new SpeechSynthesisUtterance(word);
+  u.lang = 'en-US'; u.rate = 0.85;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+
+document.getElementById('btn-clear').addEventListener('click', () => {
+  if (done) return;
+  answered.forEach(entry => { if (entry) letterMap[entry.mi].used = false; });
+  answered = Array(words[wordIdx].w.length).fill('');
+  updateSlots();
+  renderLetters();
+});
+
+document.getElementById('btn-hint').addEventListener('click', () => {
+  if (done) return;
+  const word = words[wordIdx].w;
+  if (hints >= word.length) return;
+  const hintIdx = answered.indexOf('');
+  if (hintIdx === -1) return;
+  const correctLetter = word[hintIdx];
+  const available = letterMap.find(m => !m.used && m.l === correctLetter);
+  if (!available) return;
+  hints++;
+  answered[hintIdx] = { letter: available.l, mi: letterMap.indexOf(available) };
+  available.used = true;
+  updateSlots();
+  renderLetters();
+  if (!answered.includes('')) checkAnswer();
+  const hintCount = ['いち','に','さん','し','ご'][hints-1] || hints;
+  document.getElementById('hint-text').textContent = `💡 ヒント${hintCount}かいめ：「${correctLetter.toUpperCase()}」が${hintIdx+1}もじめ`;
+});
+
+document.getElementById('btn-next').addEventListener('click', () => {
+  wordIdx++;
+  if (wordIdx >= words.length) { wordIdx = 0; words = shuffle(ALL_WORDS[currentLevel]); }
+  document.getElementById('btn-next').style.display = 'none';
+  loadWord();
+});
+
+document.querySelectorAll('.lv-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.lv-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    startLevel(Number(btn.dataset.lv));
+  });
+});
+
+startLevel(1);
+</script>
+</body>
+</html>
