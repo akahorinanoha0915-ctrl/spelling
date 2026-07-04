@@ -231,6 +231,7 @@ let hints = 0;
 let score = 0;
 let total = 0;
 let done = false;
+let missed = false; // この単語で間違えたか
 
 function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
 
@@ -249,6 +250,7 @@ function loadWord() {
   answered = Array(letters.length).fill('');
   hints = 0;
   done = false;
+  missed = false;
   letterMap = shuffle(letters.map((l, i) => ({ l, i, used: false })));
 
   document.getElementById('hint-emoji').textContent = w.e;
@@ -293,6 +295,7 @@ function addLetter(mi) {
   if (item.used) return;
   const emptyIdx = answered.indexOf('');
   if (emptyIdx === -1) return;
+  speakPhoneme(item.l); // フォニックス音素を発音
   answered[emptyIdx] = { letter: item.l, mi };
   item.used = true;
   updateSlots();
@@ -327,11 +330,13 @@ function checkAnswer() {
     slots.forEach(s => s.classList.add('correct'));
     document.getElementById('result-msg').textContent = '🎉 せいかい！';
     document.getElementById('result-msg').className = 'result-msg ok';
-    score++; total++; done = true;
+    if (!missed) score++;
+    total++; done = true;
     updateScore();
     speak(word);
     document.getElementById('btn-next').style.display = 'inline-block';
   } else {
+    missed = true;
     slots.forEach(s => s.classList.add('wrong'));
     document.getElementById('result-msg').textContent = '❌ もういちど！';
     document.getElementById('result-msg').className = 'result-msg ng';
@@ -353,12 +358,38 @@ function updateScore() {
   document.getElementById('total').textContent = total;
 }
 
-function speak(word) {
+// 英語ネイティブボイスを自動選択（Edge Natural > Google > en-US）
+let enVoice = null;
+function pickVoice() {
+  if (!window.speechSynthesis) return;
+  const vs = speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
+  enVoice = vs.find(v => /Natural/i.test(v.name) && v.lang === 'en-US')
+         || vs.find(v => /Google/i.test(v.name) && v.lang === 'en-US')
+         || vs.find(v => v.lang === 'en-US') || vs[0] || null;
+}
+if (window.speechSynthesis) {
+  pickVoice();
+  speechSynthesis.onvoiceschanged = pickVoice;
+}
+
+function speak(word, rate) {
   if (!window.speechSynthesis) return;
   const u = new SpeechSynthesisUtterance(word);
-  u.lang = 'en-US'; u.rate = 0.85;
+  u.lang = 'en-US'; u.rate = rate || 0.85;
+  if (enVoice) u.voice = enVoice;
   speechSynthesis.cancel();
   speechSynthesis.speak(u);
+}
+
+// フォニックス：各アルファベットの音素（文字の名前ではなく「音」）をTTSで近似発音
+const PHONICS_TTS = {
+  a:'ah', b:'buh', c:'kuh', d:'duh', e:'eh', f:'fuh', g:'guh', h:'huh', i:'ih',
+  j:'juh', k:'kuh', l:'luh', m:'muh', n:'nuh', o:'oh', p:'puh', q:'kwuh', r:'ruh',
+  s:'suh', t:'tuh', u:'uh', v:'vuh', w:'wuh', x:'ks', y:'yuh', z:'zuh'
+};
+function speakPhoneme(letter) {
+  const p = PHONICS_TTS[letter.toLowerCase()];
+  if (p) speak(p, 0.8);
 }
 
 document.getElementById('btn-clear').addEventListener('click', () => {
@@ -379,6 +410,7 @@ document.getElementById('btn-hint').addEventListener('click', () => {
   const available = letterMap.find(m => !m.used && m.l === correctLetter);
   if (!available) return;
   hints++;
+  speakPhoneme(available.l); // ヒントの文字も音素を発音
   answered[hintIdx] = { letter: available.l, mi: letterMap.indexOf(available) };
   available.used = true;
   updateSlots();
